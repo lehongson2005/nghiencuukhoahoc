@@ -1,0 +1,75 @@
+version: '3.8'
+services:
+
+  # 1. Service App (Laravel)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: nckh-laravel-app
+    container_name: nckh-app
+    restart: unless-stopped
+    working_dir: /var/www
+    volumes:
+      - ./laravel:/var/www
+    networks:
+      - nckh-network
+
+  # 2. Service Web Server (Nginx)
+  webserver:
+    image: nginx:alpine
+    container_name: nckh-webserver
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./laravel:/var/www
+      - ./docker-compose/nginx:/etc/nginx/conf.d/
+    networks:
+      - nckh-network
+
+  # 3. Service Database (MySQL)
+  db:
+    image: mysql:8.0
+    container_name: nckh-db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: nckh_database
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_PASSWORD: password
+      MYSQL_USER: sail
+    ports:
+      - "3307:3306"
+    networks:
+      - nckh-network
+
+  # 4. phpMyAdmin
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: nckh-phpmyadmin
+    links:
+      - db
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      PMA_ARBITRARY: 1
+    restart: always
+    ports:
+      - "8081:80"
+    networks:
+      - nckh-network
+
+  # 5. AI Service (Python FastAPI)
+  ai_service:
+    build:
+      context: ./python_service
+    container_name: nckh-ai-service
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    networks:
+      - nckh-network
+
+networks:
+  nckh-network:
+    driver: bridge

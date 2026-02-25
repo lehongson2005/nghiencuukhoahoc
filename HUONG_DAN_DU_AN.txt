@@ -1,0 +1,63 @@
+================================================================================
+          HỆ THỐNG QUẢN LÝ ĐIỂM DANH SINH VIÊN BẰNG NHẬN DIỆN KHUÔN MẶT
+================================================================================
+
+1. GIỚI THIỆU DỰ ÁN
+-----------------
+Dự án là một hệ thống toàn diện hỗ trợ quản lý các sự kiện nghiên cứu khoa học,
+điểm danh sinh viên bằng công nghệ nhận diện khuôn mặt (AI) kết hợp GPS.
+
+Các thành phần chính:
+- Backend: Laravel v12 (Chạy trong Docker).
+- Web Dashboard: React v18 + Vite (Dành cho Admin và Sinh viên).
+- Mobile App: Flutter (Dành cho sinh viên đăng ký và điểm danh).
+- AI Service: Python FastAPI (Xử lý so khớp khuôn mặt).
+
+2. CÁCH CHẠY DỰ ÁN
+-----------------
+BƯỚC 1: Chạy Backend (Yêu cầu cài Docker)
+- Mở Terminal tại thư mục gốc.
+- Chạy lệnh: docker-compose up -d
+- Chạy Migration (Lần đầu): docker exec -it nckh-app php artisan migrate
+
+BƯỚC 2: Chạy Web Dashboard
+- Mở Terminal tại thư mục: web_dashboard
+- Chạy lệnh: npm install (nếu chưa cài)
+- Chạy lệnh: npm run dev
+
+BƯỚC 3: Chạy Mobile App
+- Mở thư mục mobile_app bằng VS Code hoặc Android Studio.
+- Chạy lệnh: flutter pub get
+- Chạy lệnh: flutter run
+
+3. HƯỚNG DẪN ĐỔI ĐỊA CHỈ IP
+--------------------------
+Khi máy tính thay đổi mạng (Wifi khác), địa chỉ IP sẽ thay đổi. Bạn cần cập nhật
+IP mới để App và Web có thể gọi được API.
+
+CÁCH TÌM IP MÁY TÍNH:
+- Mở CMD, gõ lệnh: ipconfig
+- Tìm dòng "IPv4 Address", ví dụ: 192.168.1.174
+
+CHỖ CẦN THAY ĐỔI:
+- Frontend (Web): 
+  File: web_dashboard/src/services/api.js
+  Dòng: const API_URL = "http://[IP-CỦA-BẠN]:8080/api";
+
+- Mobile (App): 
+  File: mobile_app/lib/services/api_service.dart
+  Dòng: static const String baseUrl = 'http://[IP-CỦA-BẠN]:8080/api';
+
+4. HỆ THỐNG PHÂN QUYỀN
+---------------------
+Hệ thống có 2 vai trò chính:
+- Admin: Có quyền quản lý sự kiện, danh sách sinh viên, xem thống kê.
+- Sinh viên (User): Xem danh sách sự kiện, đăng ký tham gia, thực hiện điểm danh
+  bằng khuôn mặt trên Mobile và xem lịch sử trên Web.
+
+Dữ liệu đăng nhập mẫu:
+- CSDL đã có tài khoản mẫu với MSSV và Password tương ứng.
+
+--------------------------------------------------------------------------------
+Chúc bạn vận hành dự án thành công!
+================================================================================
