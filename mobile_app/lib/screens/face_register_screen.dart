@@ -144,7 +144,7 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen> {
             break;
             
           case LivenessStep.lookStraight:
-             if (rotY.abs() < 10) {
+             if (rotY.abs() < 15) { // Relaxed from 10 to 15
                _currentStep = LivenessStep.readyToCapture;
                _instructionText = "Giữ nguyên! Đang chụp ảnh...";
                _progress = 1.0;
@@ -169,7 +169,7 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen> {
       await _controller!.stopImageStream();
       
       // Delay a bit for stability
-      await Future.delayed(Duration(milliseconds: 500));
+      await Future.delayed(Duration(milliseconds: 200)); // Reduced from 500
       
       final XFile image = await _controller!.takePicture();
       

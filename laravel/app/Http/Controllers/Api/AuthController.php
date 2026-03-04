@@ -65,7 +65,7 @@ class AuthController extends Controller
         // Gọi sang Python Service
         try {
             $imageFile = $request->file('image');
-            $response = \Illuminate\Support\Facades\Http::attach(
+            $response = \Illuminate\Support\Facades\Http::timeout(120)->attach(
                 'file', file_get_contents($imageFile->getRealPath()), $imageFile->getClientOriginalName()
             )->post('http://ai_service:5000/represent'); // Tên service trong Docker Compose
 

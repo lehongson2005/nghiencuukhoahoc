@@ -68,7 +68,7 @@ class AttendanceController extends Controller
         if ($request->hasFile('evidence_image')) {
             try {
                 $aiUrl = env('AI_SERVICE_URL', 'http://ai_service:5000');
-                $response = \Illuminate\Support\Facades\Http::attach(
+                $response = \Illuminate\Support\Facades\Http::timeout(120)->attach(
                     'file', file_get_contents($request->file('evidence_image')->getRealPath()), $request->file('evidence_image')->getClientOriginalName()
                 )->post($aiUrl . '/verify', [
                     'known_embedding' => $user->face_embedding

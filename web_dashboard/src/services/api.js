@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = "http://192.168.1.174:8080/api"; // Thay đổi IP nếu cần
+const API_URL = "http://192.168.1.14:8080/api"; // Thay đổi IP nếu cần
 
 const api = axios.create({
     baseURL: API_URL,

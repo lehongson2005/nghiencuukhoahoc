@@ -2,13 +2,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:intl/intl.dart';
 import '../services/api_service.dart';
-import 'face_register_screen.dart';
 import 'checkin_camera_screen.dart';
+import 'face_register_screen.dart';
 import '../constants/app_colors.dart';
-
-import 'attendance_history_screen.dart';
-import 'login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -19,7 +17,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final ApiService _apiService = ApiService();
   String _statusMessage = "Sẵn sàng điểm danh";
   bool _isLoading = false;
-  List<dynamic> _events = [];
+  List<dynamic> _myEvents = [];
   String? _selectedEventId;
   Map<String, dynamic>? _user;
 
@@ -27,7 +25,6 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadUserData();
-    _fetchEvents();
   }
 
   Future<void> _loadUserData() async {
@@ -37,18 +34,38 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _user = jsonDecode(userJson);
       });
+      _fetchMyEvents();
+      
+      // Auto-check face registration
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_user!['face_image_path'] == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Bạn cần đăng ký khuôn mặt để bắt đầu điểm danh!"),
+              duration: Duration(seconds: 5),
+              action: SnackBarAction(
+                label: "ĐĂNG KÝ NGAY", 
+                onPressed: () {
+                   // Navigate to face register is handled via BottomNav or custom call
+                   // Here we just notify, let them use the 'Dashboard' button I added
+                }
+              ),
+            )
+          );
+        }
+      });
     }
   }
 
-  Future<void> _fetchEvents() async {
+  Future<void> _fetchMyEvents() async {
     if (_user == null) return;
     
     final result = await _apiService.getMyEvents(_user!['id'].toString());
     if (mounted && result['status'] == true) {
       setState(() {
-        _events = result['data'];
-        if (_events.isNotEmpty && _selectedEventId == null) {
-          _selectedEventId = _events[0]['id'].toString();
+        _myEvents = result['data'];
+        if (_myEvents.isNotEmpty && _selectedEventId == null) {
+          _selectedEventId = _myEvents[0]['id'].toString();
         }
       });
     }
@@ -114,78 +131,43 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Lấy URL ảnh từ server
-    // Ví dụ: http://192.168.1.168:8080/storage/faces/xxx.jpg
-    String baseUrl = ApiService.baseUrl.replaceAll('/api', '');
-    String? faceUrl = (_user != null && _user!['face_image_path'] != null) 
-        ? "$baseUrl/${_user!['face_image_path']}" 
-        : null;
-
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: CustomScrollView(
-        slivers: [
-          // Header Profile
-          SliverAppBar(
-            expandedHeight: 200,
-            floating: false,
-            pinned: true,
-            actions: [
-              IconButton(
-                icon: Icon(Icons.logout, color: Colors.white),
-                onPressed: () async {
-                  final prefs = await SharedPreferences.getInstance();
-                  await prefs.clear();
-                  Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => LoginScreen()));
-                },
-              )
-            ],
-            flexibleSpace: FlexibleSpaceBar(
-              background: Container(
-                decoration: BoxDecoration(gradient: AppColors.primaryGradient),
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 60, left: 20, right: 20),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+      body: RefreshIndicator(
+        onRefresh: _loadUserData,
+        child: CustomScrollView(
+          slivers: [
+            // Slick Header
+            SliverAppBar(
+              expandedHeight: 180,
+              pinned: true,
+              flexibleSpace: FlexibleSpaceBar(
+                background: Container(
+                  decoration: BoxDecoration(
+                    gradient: AppColors.primaryGradient,
+                    borderRadius: BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
+                  ),
+                  child: Stack(
                     children: [
-                      // Ảnh đại diện khuôn mặt
-                      Container(
-                        width: 85,
-                        height: 85,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 3),
-                          boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10)],
-                        ),
-                        child: ClipOval(
-                          child: faceUrl != null
-                            ? Image.network(
-                                faceUrl, 
-                                fit: BoxFit.cover, 
-                                errorBuilder: (_, __, ___) => Icon(Icons.person, size: 40, color: Colors.white),
-                              )
-                            : Container(color: Colors.white24, child: Icon(Icons.person, color: Colors.white, size: 45)),
-                        ),
+                      Positioned(
+                        right: -20,
+                        top: -20,
+                        child: CircleAvatar(radius: 60, backgroundColor: Colors.white.withOpacity(0.1)),
                       ),
-                      SizedBox(width: 20),
-                      Expanded(
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 60, 24, 20),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              _user?['name'] ?? "Sinh viên",
-                              style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                              "Xin chào, ${_user?['name'] ?? 'Sinh viên'}!",
+                              style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
                             ),
+                            SizedBox(height: 4),
                             Text(
-                              "MSSV: ${_user?['mssv'] ?? 'N/A'}",
-                              style: TextStyle(color: Colors.white70, fontSize: 16),
+                              "Bắt đầu ngày mới với những sự kiện ý nghĩa",
+                              style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13),
                             ),
-                            SizedBox(height: 12),
-                            Container(
-                              padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(10)),
-                              child: Text("Hệ thống điểm danh AI", style: TextStyle(color: Colors.white, fontSize: 12)),
-                            )
                           ],
                         ),
                       ),
@@ -194,181 +176,269 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-          ),
 
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Nút Đăng ký khuôn mặt - Chỉ hiện nếu chưa đăng ký
-                  if (faceUrl == null)
-                  Card(
-                    elevation: 5,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                    child: InkWell(
-                      onTap: () async {
-                        await Navigator.push(context, MaterialPageRoute(builder: (_) => FaceRegisterScreen()));
-                        _loadUserData(); 
-                      },
-                      child: Container(
-                        padding: EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(20),
-                          gradient: LinearGradient(colors: [Colors.indigo[400]!, Colors.indigo[800]!]),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.camera_front, color: Colors.white, size: 40),
-                            SizedBox(width: 15),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text("Đăng ký nhận diện", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                                  Text("Bạn cần đăng ký khuôn mặt để điểm danh", style: TextStyle(color: Colors.white70, fontSize: 13)),
-                                ],
-                              ),
-                            ),
-                            Icon(Icons.arrow_forward_ios, color: Colors.white, size: 16),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ) else 
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      child: Text("✅ Khuôn mặt đã được xác thực", style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold)),
-                    ),
-
-                  SizedBox(height: 15),
-                  
-                  // Nút Lịch sử điểm danh
-                  Card(
-                    elevation: 5,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                    child: InkWell(
-                      onTap: () {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => AttendanceHistoryScreen(userId: _user!['id'].toString())));
-                      },
-                      child: Container(
-                        padding: EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(20),
-                          color: Colors.white,
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.history, color: AppColors.primary, size: 40),
-                            SizedBox(width: 15),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text("Lịch sử điểm danh", style: TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
-                                  Text("Xem lại các sự kiện đã tham gia", style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
-                                ],
-                              ),
-                            ),
-                            Icon(Icons.arrow_forward_ios, color: AppColors.textSecondary, size: 16),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  SizedBox(height: 15),
-                  Text("Chọn sự kiện điểm danh", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                  SizedBox(height: 15),
-
-                  // Dropdown chọn sự kiện
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 15),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey[200]!),
-                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
-                    ),
-                    child: _events.isEmpty
-                      ? Padding(padding: EdgeInsets.all(15), child: Center(child: Text("Không có sự kiện khả dụng")))
-                      : DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _selectedEventId,
-                            isExpanded: true,
-                            items: _events.map<DropdownMenuItem<String>>((ev) {
-                              return DropdownMenuItem<String>(
-                                value: ev['id'].toString(),
-                                child: Text(ev['title'] ?? 'Sự kiện', style: TextStyle(fontSize: 15)),
-                              );
-                            }).toList(),
-                            onChanged: (val) => setState(() => _selectedEventId = val),
-                          ),
-                        ),
-                  ),
-
-                  SizedBox(height: 50),
-                  
-                  // Nút điểm danh hình tròn cực đẹp - CHỈ HIỆN NẾU ĐÃ ĐĂNG KÝ
-                  Center(
-                    child: Column(
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildStatusCard(),
+                    
+                    SizedBox(height: 30),
+                    
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        if (faceUrl == null)
-                          Text("⚠️ Hãy đăng ký khuôn mặt trước khi điểm danh", style: TextStyle(color: AppColors.error, fontWeight: FontWeight.bold))
-                        else
-                          Text(_statusMessage, style: TextStyle(color: AppColors.primary, fontSize: 16, fontWeight: FontWeight.w600)),
-                        
-                        SizedBox(height: 25),
-                        
-                        _isLoading
-                          ? CircularProgressIndicator(color: AppColors.primary)
-                          : (faceUrl != null) 
-                            ? GestureDetector(
-                                onTap: _checkIn,
-                                child: Container(
-                                  width: 140,
-                                  height: 140,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: AppColors.primary,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: AppColors.primary.withOpacity(0.3),
-                                        blurRadius: 25,
-                                        spreadRadius: 8,
-                                      )
-                                    ],
-                                    gradient: RadialGradient(
-                                      colors: [AppColors.primaryLight, AppColors.primary],
-                                    ),
-                                  ),
-                                  child: Center(
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(Icons.touch_app, color: Colors.white, size: 50),
-                                        SizedBox(height: 5),
-                                        Text("CHECK IN", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              )
-                            : Icon(Icons.lock_person, size: 80, color: Colors.grey[300]),
+                        Text("Sự kiện của bạn", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+                        if (_myEvents.isNotEmpty)
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text("${_myEvents.length} sự kiện", style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 12)),
+                          ),
                       ],
                     ),
-                  ),
-                ],
+                    SizedBox(height: 15),
+
+                    _myEvents.isEmpty 
+                      ? _buildEmptyEvents()
+                      : Column(
+                          children: [
+                            _buildEventSelector(),
+                            SizedBox(height: 40),
+                            _buildCheckInAction(),
+                          ],
+                        ),
+                    
+                    SizedBox(height: 100),
+                  ],
+                ),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusCard() {
+    bool hasFace = _user != null && _user!['face_image_path'] != null;
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 20,
+            offset: Offset(0, 8),
+          )
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () async {
+            if (!hasFace) {
+               await Navigator.push(context, MaterialPageRoute(builder: (_) => FaceRegisterScreen()));
+               _loadUserData();
+            } else {
+               ScaffoldMessenger.of(context).showSnackBar(
+                 SnackBar(
+                   content: Text("Dữ liệu khuôn mặt đã tồn tại. Liên hệ Admin để reset."),
+                   behavior: SnackBarBehavior.floating,
+                   backgroundColor: AppColors.textPrimary,
+                 )
+               );
+            }
+          },
+          borderRadius: BorderRadius.circular(24),
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Row(
+              children: [
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: (hasFace ? AppColors.accent : AppColors.error).withOpacity(0.1), 
+                    shape: BoxShape.circle
+                  ),
+                  child: Icon(
+                    hasFace ? Icons.verified_user_rounded : Icons.report_problem_rounded, 
+                    color: hasFace ? AppColors.accent : AppColors.error, 
+                    size: 28
+                  ),
+                ),
+                SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("Trạng thái định danh", style: TextStyle(color: AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.w600)),
+                      SizedBox(height: 4),
+                      Text(
+                        hasFace ? "Hệ thống sẵn sàng" : "Chưa đăng ký khuôn mặt", 
+                        style: TextStyle(
+                          color: AppColors.textPrimary, 
+                          fontSize: 16, 
+                          fontWeight: FontWeight.bold
+                        )
+                      ),
+                    ],
+                  ),
+                ),
+                if (!hasFace)
+                  Icon(Icons.arrow_forward_ios_rounded, color: AppColors.error, size: 14)
+                else
+                  Icon(Icons.check_circle_rounded, color: AppColors.accent, size: 24),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyEvents() {
+    return Container(
+      padding: EdgeInsets.all(40),
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey.withOpacity(0.1)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: EdgeInsets.all(20),
+            decoration: BoxDecoration(color: AppColors.background, shape: BoxShape.circle),
+            child: Icon(Icons.event_busy_rounded, size: 40, color: Colors.grey.shade400),
+          ),
+          SizedBox(height: 20),
+          Text("Trống", style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 18)),
+          SizedBox(height: 8),
+          Text(
+            "Bạn chưa đăng ký sự kiện nào.\nHãy chuyển sang tab Sự kiện để đăng ký nhé!", 
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.5), 
+            textAlign: TextAlign.center
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _fetchEvents,
-        backgroundColor: AppColors.primary,
-        child: Icon(Icons.refresh, color: Colors.white),
+    );
+  }
+
+  Widget _buildEventSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text("Chọn sự kiện điểm danh", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary.withOpacity(0.7))),
+        SizedBox(height: 12),
+        Container(
+          padding: EdgeInsets.symmetric(horizontal: 20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppColors.primary.withOpacity(0.1)),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: Offset(0, 4))],
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: _selectedEventId,
+              isExpanded: true,
+              icon: Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primary),
+              items: _myEvents.map<DropdownMenuItem<String>>((ev) {
+                return DropdownMenuItem<String>(
+                  value: ev['id'].toString(),
+                  child: Text(ev['title'] ?? 'Sự kiện', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                );
+              }).toList(),
+              onChanged: (val) => setState(() => _selectedEventId = val),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCheckInAction() {
+    bool hasFace = _user != null && _user!['face_image_path'] != null;
+    return Center(
+      child: Column(
+        children: [
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: (hasFace ? AppColors.primary : AppColors.error).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              hasFace ? _statusMessage : "⚠️ Vui lòng đăng ký khuôn mặt trước", 
+              style: TextStyle(
+                color: hasFace ? AppColors.primary : AppColors.error, 
+                fontSize: 14, 
+                fontWeight: FontWeight.bold
+              )
+            ),
+          ),
+          SizedBox(height: 30),
+          _isLoading
+            ? CircularProgressIndicator(color: AppColors.primary)
+            : GestureDetector(
+                onTap: hasFace ? _checkIn : () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text("Bạn cần đăng ký khuôn mặt để điểm danh!"), 
+                      backgroundColor: AppColors.error,
+                      behavior: SnackBarBehavior.floating,
+                    )
+                  );
+                },
+                child: Container(
+                  width: 180,
+                  height: 180,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: (hasFace ? AppColors.primary : Colors.grey).withOpacity(0.2),
+                        blurRadius: 40,
+                        spreadRadius: 5,
+                      )
+                    ],
+                    gradient: hasFace 
+                        ? AppColors.primaryGradient 
+                        : LinearGradient(colors: [Colors.grey.shade400, Colors.grey.shade600]),
+                  ),
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          hasFace ? Icons.qr_code_scanner_rounded : Icons.lock_person_rounded, 
+                          color: Colors.white, 
+                          size: 70
+                        ),
+                        SizedBox(height: 12),
+                        Text(
+                          hasFace ? "ĐIỂM DANH" : "BỊ KHÓA", 
+                          style: TextStyle(
+                            color: Colors.white, 
+                            fontWeight: FontWeight.w900, 
+                            fontSize: 15, 
+                            letterSpacing: 2,
+                          )
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+        ],
       ),
     );
   }

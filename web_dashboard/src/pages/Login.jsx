@@ -21,7 +21,9 @@ const Login = () => {
                 if (res.data.role === 'admin') {
                     navigate('/admin');
                 } else {
-                    navigate('/home');
+                    // Nếu không phải admin, đăng xuất ngay lập tức và báo lỗi
+                    authService.logout();
+                    setError('Truy cập bị từ chối. Trang web này chỉ dành cho Quản trị viên.');
                 }
             } else {
                 setError(res.message || 'Đăng nhập thất bại');

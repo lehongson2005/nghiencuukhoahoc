@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
 
-  static const String baseUrl = 'http://192.168.1.174:8080/api'; 
+  static const String baseUrl = 'http://192.168.1.14:8080/api'; 
 
   Future<Map<String, dynamic>> login(String mssv, String password) async {
     final response = await http.post(

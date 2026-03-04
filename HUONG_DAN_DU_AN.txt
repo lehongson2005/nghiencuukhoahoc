@@ -37,7 +37,7 @@ IP mới để App và Web có thể gọi được API.
 
 CÁCH TÌM IP MÁY TÍNH:
 - Mở CMD, gõ lệnh: ipconfig
-- Tìm dòng "IPv4 Address", ví dụ: 192.168.1.174
+- Tìm dòng "IPv4 Address", ví dụ: 192.168.1.14
 
 CHỖ CẦN THAY ĐỔI:
 - Frontend (Web): 
